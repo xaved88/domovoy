@@ -5,6 +5,8 @@ import type { TelegramClient } from '../telegram';
 import type { Person } from '../types';
 import { TOOLS } from '../tools';
 
+const CELEBRATORY_EMOJIS = ['🎉', '👏', '🔥', '⚡'];
+
 export function createIntentProcessor(
   config: Config,
   notion: NotionClient,
@@ -16,6 +18,7 @@ export function createIntentProcessor(
     text: string,
     senderName: Person,
     chatId: number,
+    messageId: number,
   ): Promise<void> {
     const chores = await notion.listChores();
 
@@ -80,7 +83,8 @@ Rules:
           `⚠️ Chore noted but Notion update failed (${errors.join(', ')}). Please check manually.`,
         );
       } else {
-        await telegram.sendMessage(chatId, '✅');
+        const emoji = CELEBRATORY_EMOJIS[Math.floor(Math.random() * CELEBRATORY_EMOJIS.length)];
+        await telegram.reactToMessage(chatId, messageId, emoji);
       }
     } else if (name === 'request_clarification') {
       const { message } = input as { message: string };

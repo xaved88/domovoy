@@ -63,7 +63,7 @@ export function createBot(config: Config) {
     try {
       const senderName = await notion.lookupMember(telegramId);
       if (!senderName) return;
-      await intentProcessor.processMessage(msg.text, senderName, groupChatId);
+      await intentProcessor.processMessage(msg.text, senderName, groupChatId, msg.message_id);
     } catch (err) {
       console.error('Error processing message:', String(err));
     }
