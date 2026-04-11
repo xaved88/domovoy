@@ -1,6 +1,6 @@
 import type { Config } from '../config';
-import { createTelegramClient } from '../telegram';
-import { createNotionClient } from '../notion';
+import type { TelegramClient } from '../telegram';
+import type { NotionClient } from '../notion';
 import { createIntentProcessor } from '../handlers/intent';
 import type { Person } from '../types';
 
@@ -10,9 +10,7 @@ function ucFirst(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
 }
 
-export function createBot(config: Config) {
-  const telegram = createTelegramClient(config);
-  const notion = createNotionClient(config);
+export function createBot(config: Config, notion: NotionClient, telegram: TelegramClient) {
   const intentProcessor = createIntentProcessor(config, notion, telegram);
   const groupChatId = Number(config.TELEGRAM_CHAT_ID);
 

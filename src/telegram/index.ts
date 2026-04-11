@@ -2,7 +2,7 @@ import TelegramBot from 'node-telegram-bot-api';
 import { Config } from '../config';
 
 export interface TelegramClient {
-  sendMessage: (chatId: number | string, text: string) => Promise<void>;
+  sendMessage: (chatId: number | string, text: string, parseMode?: 'Markdown' | 'HTML') => Promise<void>;
   reactToMessage: (chatId: number, messageId: number, emoji: string) => Promise<void>;
   onMessage: (handler: (msg: TelegramBot.Message) => void) => void;
   onCommand: (command: string, handler: (msg: TelegramBot.Message) => void) => void;
@@ -12,9 +12,13 @@ export interface TelegramClient {
 export function createTelegramClient(config: Config): TelegramClient {
   const bot = new TelegramBot(config.TELEGRAM_BOT_TOKEN, { polling: false });
 
-  async function sendMessage(chatId: number | string, text: string): Promise<void> {
+  async function sendMessage(
+    chatId: number | string,
+    text: string,
+    parseMode?: 'Markdown' | 'HTML',
+  ): Promise<void> {
     try {
-      await bot.sendMessage(chatId, text);
+      await bot.sendMessage(chatId, text, parseMode ? { parse_mode: parseMode } : {});
     } catch (err) {
       throw new Error(`Error sending Telegram message to chat ${chatId}: ${String(err)}`);
     }
