@@ -4,6 +4,15 @@ import { createTelegramClient } from './telegram';
 import { createBot } from './bot';
 import { startScheduler } from './scheduler';
 
+// Catch anything that slips through handler-level try/catch blocks
+process.on('uncaughtException', (err) => {
+  console.error('[uncaughtException]', err);
+});
+
+process.on('unhandledRejection', (reason) => {
+  console.error('[unhandledRejection]', reason);
+});
+
 const config = loadConfig();
 console.log(`Domovoy starting (tz: ${config.TZ})`);
 

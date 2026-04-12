@@ -19,6 +19,14 @@ export function startScheduler(
         await reminder.sendReminder(new Date());
       } catch (err) {
         console.error('[scheduler] Reminder failed:', String(err));
+        try {
+          await telegram.sendMessage(
+            Number(config.TELEGRAM_CHAT_ID),
+            '⚠️ Could not fetch chores for the daily reminder — Notion may be unavailable. Please check manually.',
+          );
+        } catch (sendErr) {
+          console.error('[scheduler] Failed to send fallback message:', String(sendErr));
+        }
       }
     },
     { timezone: 'Europe/Berlin' },
