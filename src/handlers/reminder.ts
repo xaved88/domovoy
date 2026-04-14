@@ -2,12 +2,15 @@ import type { NotionClient, Chore } from '../notion';
 import type { TelegramClient } from '../telegram';
 import type { Config } from '../config';
 
-function groupByAssignee(chores: Chore[]) {
-  return {
-    logan: chores.filter((c) => c.assignee === 'Logan'),
-    yael: chores.filter((c) => c.assignee === 'Yael'),
-    shared: chores.filter((c) => c.assignee === 'Shared' || c.assignee === null),
-  };
+function groupByAssignee(chores: Chore[]): Map<string | null, Chore[]> {
+  const groups = new Map<string | null, Chore[]>();
+  for (const chore of chores) {
+    const key = chore.assignee === 'Shared' || chore.assignee === null ? null : chore.assignee;
+    const group = groups.get(key) ?? [];
+    group.push(chore);
+    groups.set(key, group);
+  }
+  return groups;
 }
 
 function formatPersonBlock(name: string, chores: Chore[]): string {
@@ -15,11 +18,13 @@ function formatPersonBlock(name: string, chores: Chore[]): string {
 }
 
 function formatSection(header: string, chores: Chore[]): string {
-  const { logan, yael, shared } = groupByAssignee(chores);
+  const groups = groupByAssignee(chores);
   const parts = [header];
-  if (logan.length > 0) parts.push(formatPersonBlock('Logan', logan));
-  if (yael.length > 0) parts.push(formatPersonBlock('Yael', yael));
-  if (shared.length > 0) parts.push(formatPersonBlock('Either of you', shared));
+  for (const [assignee, assigned] of groups) {
+    if (assignee !== null) parts.push(formatPersonBlock(assignee, assigned));
+  }
+  const shared = groups.get(null);
+  if (shared && shared.length > 0) parts.push(formatPersonBlock('Either of you', shared));
   return parts.join('\n\n');
 }
 

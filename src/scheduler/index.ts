@@ -3,6 +3,9 @@ import type { NotionClient } from '../notion';
 import type { TelegramClient } from '../telegram';
 import type { Config } from '../config';
 import { createReminderHandler } from '../handlers/reminder';
+import { createLogger } from '../logger';
+
+const logger = createLogger('scheduler');
 
 export function startScheduler(
   notion: NotionClient,
@@ -14,23 +17,23 @@ export function startScheduler(
   cron.schedule(
     '0 9 * * *',
     async () => {
-      console.log('[scheduler] Running daily reminder');
+      logger.info('Running daily reminder');
       try {
         await reminder.sendReminder(new Date());
       } catch (err) {
-        console.error('[scheduler] Reminder failed:', String(err));
+        logger.error('Reminder failed', { error: String(err) });
         try {
           await telegram.sendMessage(
             Number(config.TELEGRAM_CHAT_ID),
             '⚠️ Could not fetch chores for the daily reminder — Notion may be unavailable. Please check manually.',
           );
         } catch (sendErr) {
-          console.error('[scheduler] Failed to send fallback message:', String(sendErr));
+          logger.error('Failed to send fallback message', { error: String(sendErr) });
         }
       }
     },
     { timezone: 'Europe/Berlin' },
   );
 
-  console.log('Scheduler started (daily reminder at 09:00 Europe/Berlin)');
+  logger.info('Scheduler started', { schedule: '09:00 Europe/Berlin' });
 }

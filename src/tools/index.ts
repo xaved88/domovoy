@@ -3,21 +3,22 @@ import type Anthropic from '@anthropic-ai/sdk';
 export const TOOLS: Anthropic.Tool[] = [
   {
     name: 'log_chore',
-    description: 'Log that a chore has been completed by a household member.',
+    description:
+      'Log that one or more chores have been completed by a household member. Include every chore mentioned in the message.',
     input_schema: {
       type: 'object' as const,
       properties: {
-        chore_id: {
-          type: 'string',
-          description: 'The Notion page ID of the completed chore.',
+        chore_ids: {
+          type: 'array',
+          items: { type: 'string' },
+          description: 'The Notion page IDs of all completed chores. May contain more than one.',
         },
         done_by: {
           type: 'string',
-          enum: ['Logan', 'Yael'],
-          description: 'The person who completed the chore.',
+          description: 'The name of the person who completed the chores.',
         },
       },
-      required: ['chore_id', 'done_by'],
+      required: ['chore_ids', 'done_by'],
     },
   },
   {

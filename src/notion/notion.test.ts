@@ -6,10 +6,12 @@ import type { Config } from '../config';
 const mockQuery = vi.hoisted(() => vi.fn());
 const mockUpdate = vi.hoisted(() => vi.fn());
 const mockCreate = vi.hoisted(() => vi.fn());
+const mockDbRetrieve = vi.hoisted(() => vi.fn());
+const mockDbUpdate = vi.hoisted(() => vi.fn());
 
 vi.mock('@notionhq/client', () => ({
   Client: vi.fn().mockReturnValue({
-    databases: { query: mockQuery },
+    databases: { query: mockQuery, retrieve: mockDbRetrieve, update: mockDbUpdate },
     pages: { update: mockUpdate, create: mockCreate },
   }),
 }));

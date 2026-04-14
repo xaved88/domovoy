@@ -2,9 +2,9 @@ import type { Config } from '../config';
 import type { TelegramClient } from '../telegram';
 import type { NotionClient } from '../notion';
 import { createIntentProcessor } from '../handlers/intent';
-import type { Person } from '../types';
+import { createLogger } from '../logger';
 
-const VALID_NAMES: Person[] = ['Logan', 'Yael'];
+const logger = createLogger('bot');
 
 function ucFirst(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1).toLowerCase();
@@ -20,7 +20,7 @@ export function createBot(config: Config, notion: NotionClient, telegram: Telegr
     try {
       await telegram.sendMessage(groupChatId, 'pong');
     } catch (err) {
-      console.error('Error handling /ping:', String(err));
+      logger.error('Error handling /ping', { error: String(err) });
     }
   });
 
@@ -29,15 +29,13 @@ export function createBot(config: Config, notion: NotionClient, telegram: Telegr
     if (msg.chat.id !== groupChatId) return;
     const telegramId = String(msg.from?.id);
     const raw = msg.text?.replace(/^\/register(?:@\w+)?\s*/i, '').trim() ?? '';
-    const name = ucFirst(raw) as Person;
 
-    if (!VALID_NAMES.includes(name)) {
-      await telegram.sendMessage(
-        groupChatId,
-        `Unknown name "${raw}". Valid options: ${VALID_NAMES.join(', ')}.`,
-      );
+    if (!raw) {
+      await telegram.sendMessage(groupChatId, 'Usage: /register <your name>');
       return;
     }
+
+    const name = ucFirst(raw);
 
     try {
       const taken = await notion.isMemberNameTaken(name);
@@ -46,9 +44,10 @@ export function createBot(config: Config, notion: NotionClient, telegram: Telegr
         return;
       }
       await notion.registerMember(telegramId, name);
+      await notion.addChoreAssigneeOption(name);
       await telegram.sendMessage(groupChatId, `You're registered as ${name} ✅`);
     } catch (err) {
-      console.error('Error handling /register:', String(err));
+      logger.error('Error handling /register', { error: String(err) });
     }
   });
 
@@ -57,19 +56,20 @@ export function createBot(config: Config, notion: NotionClient, telegram: Telegr
     if (!msg.text || msg.text.startsWith('/')) return;
 
     const telegramId = String(msg.from?.id);
+    logger.info('Message received', { from: telegramId, text: msg.text });
 
     try {
       const senderName = await notion.lookupMember(telegramId);
       if (!senderName) return;
       await intentProcessor.processMessage(msg.text, senderName, groupChatId, msg.message_id);
     } catch (err) {
-      console.error('Error processing message:', String(err));
+      logger.error('Error processing message', { error: String(err) });
     }
   });
 
   function start(): void {
     telegram.startPolling();
-    console.log('Telegram bot polling started');
+    logger.info('Telegram bot polling started');
   }
 
   return { start };

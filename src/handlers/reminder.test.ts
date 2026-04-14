@@ -52,6 +52,7 @@ describe('createReminderHandler', () => {
       lookupMember: vi.fn(),
       isMemberNameTaken: vi.fn(),
       registerMember: vi.fn(),
+      addChoreAssigneeOption: vi.fn(),
     };
     mockTelegram = {
       sendMessage: vi.fn(),

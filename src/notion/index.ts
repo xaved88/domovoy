@@ -1,12 +1,11 @@
 import { Client } from '@notionhq/client';
 import type { PageObjectResponse } from '@notionhq/client/build/src/api-endpoints';
 import type { Config } from '../config';
-import type { Person } from '../types';
 
 export interface Chore {
   id: string;
   name: string;
-  assignee: 'Logan' | 'Yael' | 'Shared' | null;
+  assignee: string | null;
   frequencyDays: number | null;
   frequencyLabel: string | null;
   lastDone: Date | null;
@@ -34,7 +33,7 @@ function extractChore(page: PageObjectResponse): Chore {
   const assigneeProp = p['Assignee'];
   const assignee =
     assigneeProp.type === 'select' && assigneeProp.select != null
-      ? (assigneeProp.select.name as 'Logan' | 'Yael' | 'Shared')
+      ? assigneeProp.select.name
       : null;
 
   const freqDaysProp = p['Frequency Days'];
@@ -158,7 +157,7 @@ export function createNotionClient(config: Config) {
 
   async function createLogEntry(
     choreId: string,
-    doneBy: Person,
+    doneBy: string,
     doneAt: Date,
   ): Promise<void> {
     try {
@@ -178,7 +177,7 @@ export function createNotionClient(config: Config) {
     }
   }
 
-  async function lookupMember(telegramId: string): Promise<Person | null> {
+  async function lookupMember(telegramId: string): Promise<string | null> {
     try {
       const response = await client.databases.query({
         database_id: config.NOTION_MEMBERS_DB_ID,
@@ -192,13 +191,13 @@ export function createNotionClient(config: Config) {
       const nameProp = page.properties['Name'];
       if (nameProp.type !== 'rich_text') return null;
       const name = nameProp.rich_text.map((t) => t.plain_text).join('').trim();
-      return name === 'Logan' || name === 'Yael' ? name : null;
+      return name.length > 0 ? name : null;
     } catch (err) {
       throw new Error(`Error looking up member "${telegramId}" in Notion: ${String(err)}`);
     }
   }
 
-  async function isMemberNameTaken(name: Person): Promise<boolean> {
+  async function isMemberNameTaken(name: string): Promise<boolean> {
     try {
       const response = await client.databases.query({
         database_id: config.NOTION_MEMBERS_DB_ID,
@@ -213,7 +212,7 @@ export function createNotionClient(config: Config) {
     }
   }
 
-  async function registerMember(telegramId: string, name: Person): Promise<void> {
+  async function registerMember(telegramId: string, name: string): Promise<void> {
     try {
       await client.pages.create({
         parent: { database_id: config.NOTION_MEMBERS_DB_ID },
@@ -227,7 +226,29 @@ export function createNotionClient(config: Config) {
     }
   }
 
-  return { listChores, getDueChores, updateLastDone, createLogEntry, lookupMember, isMemberNameTaken, registerMember };
+  async function addChoreAssigneeOption(name: string): Promise<void> {
+    try {
+      const db = await client.databases.retrieve({ database_id: config.NOTION_CHORES_DB_ID });
+      const assigneeProp = db.properties['Assignee'];
+      if (!assigneeProp || assigneeProp.type !== 'select') return;
+      const existing = assigneeProp.select.options.map((o) => ({ id: o.id, name: o.name }));
+      if (existing.some((o) => o.name.toLowerCase() === name.toLowerCase())) return;
+      await client.databases.update({
+        database_id: config.NOTION_CHORES_DB_ID,
+        properties: {
+          Assignee: {
+            select: {
+              options: [...existing, { name }],
+            },
+          },
+        },
+      });
+    } catch (err) {
+      throw new Error(`Error adding assignee option "${name}" to Chores DB: ${String(err)}`);
+    }
+  }
+
+  return { listChores, getDueChores, updateLastDone, createLogEntry, lookupMember, isMemberNameTaken, registerMember, addChoreAssigneeOption };
 }
 
 export type NotionClient = ReturnType<typeof createNotionClient>;
