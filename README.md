@@ -100,20 +100,62 @@ The bot reacts with an emoji to confirm. If it can't match the chore, it'll ask 
 
 **Daily reminder** — at 9:00am Europe/Berlin the bot lists what's due or overdue, grouped by person.
 
-## Cloud deployment
+## Cloud deployment (fly.io)
 
-The bot uses long polling — no public URL or webhook needed. Any Docker host works.
+The bot uses long polling — no public URL or webhook needed. No flyctl install required — all fly.io operations run via Docker using `scripts/fly.ps1`.
 
-**[fly.io](https://fly.io)** (recommended free tier):
-```bash
-fly launch
-fly secrets import < .env
-fly deploy
+### First-time setup
+
+1. Create a free account at [fly.io](https://fly.io)
+
+2. Authenticate (opens a browser tab):
+   ```powershell
+   .\scripts\fly.ps1 login
+   ```
+
+3. Create the app (once, to claim the name):
+   ```powershell
+   .\scripts\fly.ps1 setup
+   ```
+   If `domovoy` is taken, update the `app` field in `fly.toml` and the name in `scripts/fly.ps1`.
+
+4. Push secrets from your `.env` file to fly.io:
+   ```powershell
+   .\scripts\fly.ps1 secrets
+   ```
+   Re-run this any time you add new environment variables.
+
+5. Create a deploy token for CI/CD:
+   ```powershell
+   .\scripts\fly.ps1 token
+   ```
+   Copy the output, then go to your GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**:
+   - Name: `FLY_API_TOKEN`
+   - Value: the token
+
+6. Deploy:
+   ```powershell
+   .\scripts\fly.ps1 deploy
+   ```
+
+### Deploying manually
+
+```powershell
+.\scripts\fly.ps1 deploy
 ```
 
-**[Render](https://render.com):** Create a new Web Service, connect your repo, set environment variables in the dashboard, and use `docker compose up` as the start command.
+Or trigger from GitHub without touching the terminal: **Actions → CI/CD → Run workflow**.
 
-**[Railway](https://railway.app):** Connect your repo, add environment variables, and deploy — Railway auto-detects the Dockerfile.
+### Automatic deploys
+
+Every push to `main` runs tests and deploys automatically.
+
+### Adding new environment variables
+
+Add the variable to `.env`, then re-sync:
+```powershell
+.\scripts\fly.ps1 secrets
+```
 
 ## Development
 

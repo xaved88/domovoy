@@ -14,11 +14,10 @@ export function createBot(config: Config, notion: NotionClient, telegram: Telegr
   const intentProcessor = createIntentProcessor(config, notion, telegram);
   const groupChatId = Number(config.TELEGRAM_CHAT_ID);
 
-  // /ping — health check, only responds in the group chat
+  // /ping — health check, responds in whatever chat it was sent from
   telegram.onCommand('ping', async (msg) => {
-    if (msg.chat.id !== groupChatId) return;
     try {
-      await telegram.sendMessage(groupChatId, 'pong');
+      await telegram.sendMessage(msg.chat.id, 'pong');
     } catch (err) {
       logger.error('Error handling /ping', { error: String(err) });
     }

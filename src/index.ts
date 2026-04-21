@@ -1,3 +1,4 @@
+import http from 'http';
 import { loadConfig } from './config';
 import { createNotionClient } from './notion';
 import { createTelegramClient } from './telegram';
@@ -26,3 +27,6 @@ startScheduler(notion, telegram, config);
 
 const bot = createBot(config, notion, telegram);
 bot.start();
+
+// Minimal HTTP server so fly.io can health-check the machine and keep it running
+http.createServer((_, res) => { res.writeHead(200); res.end('ok'); }).listen(8080);
