@@ -11,6 +11,7 @@ const CELEBRATORY_EMOJIS = ['🎉', '👏', '🔥', '⚡'];
 const COUNT_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
 // Each clarification turn stores 3 entries: user msg + assistant tool_use + tool_result
 const MAX_HISTORY_TURNS = 3;
+const BONUS_KEYWORDS = /\b(bonus|star|medal|win)\b/i;
 
 function countEmoji(n: number): string {
   return COUNT_EMOJIS[n - 1] ?? `×${n}`;
@@ -44,6 +45,20 @@ export function createIntentProcessor(
     messageId: number,
   ): Promise<void> {
     logger.info('Processing message', { sender: senderName, text });
+
+    if (BONUS_KEYWORDS.test(text)) {
+      clearHistory(chatId);
+      logger.info('Bonus keyword detected, logging ad-hoc win', { sender: senderName, text });
+      try {
+        await notion.createBonusLogEntry(text, senderName, new Date());
+        await telegram.reactToMessage(chatId, messageId, '🏆');
+      } catch (err) {
+        logger.error('Failed to create bonus log entry', { error: String(err) });
+        await telegram.sendMessage(chatId, '⚠️ Win noted but Notion update failed. Please check manually.');
+      }
+      return;
+    }
+
     const [chores, memberNames] = await Promise.all([notion.listChores(), notion.listMemberNames()]);
 
     const choreList = chores

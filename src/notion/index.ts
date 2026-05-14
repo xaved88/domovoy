@@ -177,6 +177,21 @@ export function createNotionClient(config: Config) {
     }
   }
 
+  async function createBonusLogEntry(description: string, doneBy: string, doneAt: Date): Promise<void> {
+    try {
+      await client.pages.create({
+        parent: { database_id: config.NOTION_LOG_DB_ID },
+        properties: {
+          Name: { title: [{ text: { content: description } }] },
+          'Done By': { select: { name: doneBy } },
+          'Done At': { date: { start: doneAt.toISOString() } },
+        },
+      });
+    } catch (err) {
+      throw new Error(`Error creating bonus log entry in Notion: ${String(err)}`);
+    }
+  }
+
   async function lookupMember(telegramId: string): Promise<string | null> {
     try {
       const response = await client.databases.query({
@@ -267,7 +282,7 @@ export function createNotionClient(config: Config) {
     }
   }
 
-  return { listChores, getDueChores, updateLastDone, createLogEntry, lookupMember, listMemberNames, isMemberNameTaken, registerMember, addChoreAssigneeOption };
+  return { listChores, getDueChores, updateLastDone, createLogEntry, createBonusLogEntry, lookupMember, listMemberNames, isMemberNameTaken, registerMember, addChoreAssigneeOption };
 }
 
 export type NotionClient = ReturnType<typeof createNotionClient>;
