@@ -9,6 +9,8 @@ const logger = createLogger('intent');
 
 const CELEBRATORY_EMOJIS = ['🎉', '👏', '🔥', '⚡'];
 const COUNT_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
+// Each clarification turn stores 3 entries: user msg + assistant tool_use + tool_result
+const MAX_HISTORY_TURNS = 3;
 
 function countEmoji(n: number): string {
   return COUNT_EMOJIS[n - 1] ?? `×${n}`;
@@ -20,6 +22,20 @@ export function createIntentProcessor(
   telegram: TelegramClient,
 ) {
   const anthropic = new Anthropic({ apiKey: config.ANTHROPIC_API_KEY });
+  const histories = new Map<number, Anthropic.MessageParam[]>();
+
+  function getHistory(chatId: number): Anthropic.MessageParam[] {
+    return histories.get(chatId) ?? [];
+  }
+
+  function appendHistory(chatId: number, messages: Anthropic.MessageParam[]): void {
+    const updated = [...getHistory(chatId), ...messages];
+    histories.set(chatId, updated.slice(-(MAX_HISTORY_TURNS * 3)));
+  }
+
+  function clearHistory(chatId: number): void {
+    histories.delete(chatId);
+  }
 
   async function processMessage(
     text: string,
@@ -49,13 +65,18 @@ Rules:
 - If the message is clearly not about chores, call unrecognised.
 - Always call exactly one tool.`;
 
+    const userMessage: Anthropic.MessageParam = {
+      role: 'user',
+      content: `${senderName} says: ${text}`,
+    };
+
     const response = await anthropic.messages.create({
       model: 'claude-haiku-4-5-20251001',
       max_tokens: 256,
       system: systemPrompt,
       tools: TOOLS,
       tool_choice: { type: 'any' },
-      messages: [{ role: 'user', content: `${senderName} says: ${text}` }],
+      messages: [...getHistory(chatId), userMessage],
     });
 
     const toolUse = response.content.find((block) => block.type === 'tool_use');
@@ -67,6 +88,7 @@ Rules:
     const { name, input } = toolUse;
 
     if (name === 'log_chore') {
+      clearHistory(chatId);
       const { chore_ids, done_by } = input as { chore_ids: string[]; done_by: string };
       const now = new Date();
       logger.info('log_chore: starting', { count: chore_ids.length, doneBy: done_by, chore_ids });
@@ -113,8 +135,17 @@ Rules:
       }
     } else if (name === 'request_clarification') {
       const { message } = input as { message: string };
+      appendHistory(chatId, [
+        userMessage,
+        { role: 'assistant', content: response.content },
+        {
+          role: 'user',
+          content: [{ type: 'tool_result', tool_use_id: toolUse.id, content: 'Sent to user.' }],
+        },
+      ]);
       await telegram.sendMessage(chatId, message);
     } else if (name === 'unrecognised') {
+      clearHistory(chatId);
       logger.info('Unrecognised message', { text, sender: senderName });
     } else {
       logger.error('Unknown tool returned by Claude', { tool: name, text, sender: senderName });
