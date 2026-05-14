@@ -44,7 +44,7 @@ export function createIntentProcessor(
     messageId: number,
   ): Promise<void> {
     logger.info('Processing message', { sender: senderName, text });
-    const chores = await notion.listChores();
+    const [chores, memberNames] = await Promise.all([notion.listChores(), notion.listMemberNames()]);
 
     const choreList = chores
       .map(
@@ -59,8 +59,12 @@ Your only job is to parse messages and identify which chores have been completed
 Available chores:
 ${choreList}
 
+Household members: ${memberNames.join(', ')}
+Current sender: ${senderName}
+
 Rules:
-- If the message refers to completing one or more chores, call log_chore with chore_ids containing ALL matching chore IDs, and done_by set to the sender's name. A single message may mention several chores — include every one.
+- If the message refers to completing one or more chores, call log_chore with chore_ids containing ALL matching chore IDs. A single message may mention several chores — include every one.
+- Set done_by to whoever actually completed the chore. If the message says another member did it (e.g. "Yael did the dishes"), set done_by to that member's name. Otherwise set done_by to the sender's name.
 - Prefer a confident guess over asking. If you can identify the most plausible chore — even without certainty — call log_chore and pick it. A recoverable mistake is better than interrupting the user. Only call request_clarification if you face genuine 50/50 ambiguity between two specific chores with no signal to prefer one.
 - If the message is clearly not about chores, call unrecognised.
 - Always call exactly one tool.`;
@@ -129,7 +133,9 @@ Rules:
         logger.info('log_chore: all chores logged successfully', { count: chore_ids.length, doneBy: done_by });
         const emoji = CELEBRATORY_EMOJIS[Math.floor(Math.random() * CELEBRATORY_EMOJIS.length)];
         await telegram.reactToMessage(chatId, messageId, emoji);
-        if (chore_ids.length > 1) {
+        if (done_by !== senderName) {
+          await telegram.sendMessage(chatId, `Logged for ${done_by}! ${emoji}`);
+        } else if (chore_ids.length > 1) {
           await telegram.sendMessage(chatId, countEmoji(chore_ids.length));
         }
       }

@@ -197,6 +197,25 @@ export function createNotionClient(config: Config) {
     }
   }
 
+  async function listMemberNames(): Promise<string[]> {
+    try {
+      const response = await client.databases.query({
+        database_id: config.NOTION_MEMBERS_DB_ID,
+      });
+      const names: string[] = [];
+      for (const page of response.results) {
+        if (!isFullPage(page)) continue;
+        const nameProp = page.properties['Name'];
+        if (nameProp.type !== 'rich_text') continue;
+        const name = nameProp.rich_text.map((t) => t.plain_text).join('').trim();
+        if (name) names.push(name);
+      }
+      return names;
+    } catch (err) {
+      throw new Error(`Error listing member names from Notion: ${String(err)}`);
+    }
+  }
+
   async function isMemberNameTaken(name: string): Promise<boolean> {
     try {
       const response = await client.databases.query({
@@ -248,7 +267,7 @@ export function createNotionClient(config: Config) {
     }
   }
 
-  return { listChores, getDueChores, updateLastDone, createLogEntry, lookupMember, isMemberNameTaken, registerMember, addChoreAssigneeOption };
+  return { listChores, getDueChores, updateLastDone, createLogEntry, lookupMember, listMemberNames, isMemberNameTaken, registerMember, addChoreAssigneeOption };
 }
 
 export type NotionClient = ReturnType<typeof createNotionClient>;

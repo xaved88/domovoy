@@ -50,6 +50,7 @@ describe('createReminderHandler', () => {
       updateLastDone: vi.fn(),
       createLogEntry: vi.fn(),
       lookupMember: vi.fn(),
+      listMemberNames: vi.fn(),
       isMemberNameTaken: vi.fn(),
       registerMember: vi.fn(),
       addChoreAssigneeOption: vi.fn(),
