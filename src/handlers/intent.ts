@@ -1,18 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk';
 import type { Config } from '../config';
-import type { NotionClient } from '../notion';
+import type { NotionClient, Chore } from '../notion';
 import type { TelegramClient } from '../telegram';
 import { TOOLS } from '../tools';
+import { logChores } from './chore-log';
 import { createLogger } from '../logger';
 
 const logger = createLogger('intent');
-
-const CELEBRATORY_EMOJIS = ['🎉', '👏', '🔥', '⚡'];
-const COUNT_EMOJIS = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣', '6️⃣', '7️⃣', '8️⃣', '9️⃣', '🔟'];
-
-function countEmoji(n: number): string {
-  return COUNT_EMOJIS[n - 1] ?? `×${n}`;
-}
 
 export function createIntentProcessor(
   config: Config,
@@ -26,9 +20,10 @@ export function createIntentProcessor(
     senderName: string,
     chatId: number,
     messageId: number,
+    preloadedChores?: Chore[],
   ): Promise<void> {
-    logger.info('Processing message', { sender: senderName, text });
-    const chores = await notion.listChores();
+    logger.info('Processing message via Claude', { sender: senderName, text });
+    const chores = preloadedChores ?? await notion.listChores();
 
     const choreList = chores
       .map(
@@ -68,49 +63,7 @@ Rules:
 
     if (name === 'log_chore') {
       const { chore_ids, done_by } = input as { chore_ids: string[]; done_by: string };
-      const now = new Date();
-      logger.info('log_chore: starting', { count: chore_ids.length, doneBy: done_by, chore_ids });
-
-      const failedIds = new Set<string>();
-
-      for (const choreId of chore_ids) {
-        let ok = true;
-
-        try {
-          await notion.updateLastDone(choreId, now);
-        } catch (err) {
-          logger.error('log_chore: failed to update Last Done', { choreId, error: String(err) });
-          ok = false;
-        }
-
-        try {
-          await notion.createLogEntry(choreId, done_by, now);
-        } catch (err) {
-          logger.error('log_chore: failed to create log entry', { choreId, doneBy: done_by, error: String(err) });
-          ok = false;
-        }
-
-        if (ok) {
-          logger.info('log_chore: chore logged', { choreId, doneBy: done_by });
-        } else {
-          failedIds.add(choreId);
-        }
-      }
-
-      if (failedIds.size > 0) {
-        logger.warn('log_chore: completed with errors', { failed: failedIds.size, total: chore_ids.length });
-        await telegram.sendMessage(
-          chatId,
-          `⚠️ Chore noted but Notion update failed for ${failedIds.size} of ${chore_ids.length}. Please check manually.`,
-        );
-      } else {
-        logger.info('log_chore: all chores logged successfully', { count: chore_ids.length, doneBy: done_by });
-        const emoji = CELEBRATORY_EMOJIS[Math.floor(Math.random() * CELEBRATORY_EMOJIS.length)];
-        await telegram.reactToMessage(chatId, messageId, emoji);
-        if (chore_ids.length > 1) {
-          await telegram.sendMessage(chatId, countEmoji(chore_ids.length));
-        }
-      }
+      await logChores(chore_ids, done_by, chatId, messageId, notion, telegram);
     } else if (name === 'request_clarification') {
       const { message } = input as { message: string };
       await telegram.sendMessage(chatId, message);

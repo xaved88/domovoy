@@ -80,3 +80,27 @@ Package manager: yarn. Linter: ESLint. Formatter: Prettier. Tests: Vitest.
 **Multi-tenancy ready:** User IDs and Notion DB IDs live in config objects (`household.users`, `household.notion`), not top-level constants. Handlers receive config as a parameter.
 
 **Integration interfaces:** Notion and Telegram are only accessed through their typed wrappers in `src/notion/` and `src/telegram/`. Never call SDKs directly from business logic.
+
+## Message Routing Pipeline
+
+Incoming non-system messages go through three tiers in order; the first match wins:
+
+1. **Tier 1 — Telegram commands** (`/chore-done`, etc.): Registered in the command registry (`src/bot/command-registry.ts`). Executes immediately, no fuzzy matching or Claude call.
+2. **Tier 2 — Fuzzy matching** (`src/bot/fuzzy-router.ts`): Pattern-matches natural language against known intent signatures ("did X", "finished X", …) and fuzzy-matches the extracted chore name against the Notion list. If confidence is high and the match is unambiguous, executes directly.
+3. **Tier 3 — Claude** (`src/handlers/intent.ts`): Full NLU fallback for edge cases and multi-chore messages.
+
+All three tiers call the same underlying handler functions in `src/handlers/` — no business logic lives in the routing layer.
+
+## Adding a New Command
+
+Every action the bot takes must have a Telegram slash command as its primary interface. Natural language and Claude are secondary paths that funnel into the same handler.
+
+1. **Create a handler** in `src/handlers/<command-name>.ts` with signature `(ctx: CommandContext) => Promise<void>`.
+2. **Register it** in `src/bot/index.ts`:
+   ```ts
+   registry.register('command-name', myHandler);
+   ```
+3. **Update fuzzy patterns** in `src/bot/fuzzy-router.ts` if natural language should also trigger this command.
+4. **Add a Claude tool** in `src/tools/index.ts` if Claude should be able to invoke it as a fallback, and dispatch to the handler from `src/handlers/intent.ts`.
+
+`/ping` and `/register` are system commands (no member lookup needed) and live as inline handlers in `src/bot/index.ts` — they do not go through the registry.
