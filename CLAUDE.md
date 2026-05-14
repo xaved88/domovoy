@@ -81,6 +81,10 @@ Package manager: yarn. Linter: ESLint. Formatter: Prettier. Tests: Vitest.
 
 **Integration interfaces:** Notion and Telegram are only accessed through their typed wrappers in `src/notion/` and `src/telegram/`. Never call SDKs directly from business logic.
 
+## Working Conventions
+
+**Work directly on `main`.** Do not create feature branches or worktrees. Commit directly to main and push. Logan explicitly does not want branches being created and left unmerged.
+
 ## Message Routing Pipeline
 
 Incoming non-system messages go through three tiers in order; the first match wins:

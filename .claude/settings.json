@@ -41,9 +41,9 @@
         "hooks": [
           {
             "type": "command",
-            "command": "yarn tsc --noEmit",
-            "timeout": 60,
-            "statusMessage": "Type-checking before commit..."
+            "command": "yarn lint && yarn tsc --noEmit && yarn test",
+            "timeout": 120,
+            "statusMessage": "Linting, type-checking, and testing before commit..."
           }
         ]
       }
