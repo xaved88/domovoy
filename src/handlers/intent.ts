@@ -45,7 +45,7 @@ ${choreList}
 
 Rules:
 - If the message refers to completing one or more chores, call log_chore with chore_ids containing ALL matching chore IDs, and done_by set to the sender's name. A single message may mention several chores — include every one.
-- If the message seems chore-related but you cannot confidently match any chore, call request_clarification with a short question.
+- Prefer a confident guess over asking. If you can identify the most plausible chore — even without certainty — call log_chore and pick it. A recoverable mistake is better than interrupting the user. Only call request_clarification if you face genuine 50/50 ambiguity between two specific chores with no signal to prefer one.
 - If the message is clearly not about chores, call unrecognised.
 - Always call exactly one tool.`;
 
