@@ -177,6 +177,21 @@ export function createNotionClient(config: Config) {
     }
   }
 
+  async function createBonusLogEntry(description: string, doneBy: string, doneAt: Date): Promise<void> {
+    try {
+      await client.pages.create({
+        parent: { database_id: config.NOTION_LOG_DB_ID },
+        properties: {
+          Name: { title: [{ text: { content: description } }] },
+          'Done By': { select: { name: doneBy } },
+          'Done At': { date: { start: doneAt.toISOString() } },
+        },
+      });
+    } catch (err) {
+      throw new Error(`Error creating bonus log entry in Notion: ${String(err)}`);
+    }
+  }
+
   async function lookupMember(telegramId: string): Promise<string | null> {
     try {
       const response = await client.databases.query({
@@ -194,6 +209,25 @@ export function createNotionClient(config: Config) {
       return name.length > 0 ? name : null;
     } catch (err) {
       throw new Error(`Error looking up member "${telegramId}" in Notion: ${String(err)}`);
+    }
+  }
+
+  async function listMemberNames(): Promise<string[]> {
+    try {
+      const response = await client.databases.query({
+        database_id: config.NOTION_MEMBERS_DB_ID,
+      });
+      const names: string[] = [];
+      for (const page of response.results) {
+        if (!isFullPage(page)) continue;
+        const nameProp = page.properties['Name'];
+        if (nameProp.type !== 'rich_text') continue;
+        const name = nameProp.rich_text.map((t) => t.plain_text).join('').trim();
+        if (name) names.push(name);
+      }
+      return names;
+    } catch (err) {
+      throw new Error(`Error listing member names from Notion: ${String(err)}`);
     }
   }
 
@@ -248,7 +282,7 @@ export function createNotionClient(config: Config) {
     }
   }
 
-  return { listChores, getDueChores, updateLastDone, createLogEntry, lookupMember, isMemberNameTaken, registerMember, addChoreAssigneeOption };
+  return { listChores, getDueChores, updateLastDone, createLogEntry, createBonusLogEntry, lookupMember, listMemberNames, isMemberNameTaken, registerMember, addChoreAssigneeOption };
 }
 
 export type NotionClient = ReturnType<typeof createNotionClient>;
