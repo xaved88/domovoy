@@ -3,8 +3,9 @@ import type { TelegramClient } from '../telegram';
 import type { NotionClient } from '../notion';
 import { createCommandRegistry } from './command-registry';
 import type { CommandContext } from './command-registry';
-import { fuzzyRoute } from './fuzzy-router';
+import { fuzzyRoute, fuzzySkipRoute } from './fuzzy-router';
 import { logChores } from '../handlers/chore-log';
+import { skipChores, choreSkipHandler } from '../handlers/chore-skip';
 import { choreDoneHandler } from '../handlers/chore-done';
 import { createIntentProcessor } from '../handlers/intent';
 import { createLogger } from '../logger';
@@ -23,6 +24,7 @@ export function createBot(config: Config, notion: NotionClient, telegram: Telegr
   // To add a new command: register it here and create a handler in src/handlers/.
   const registry = createCommandRegistry();
   registry.register('chore-done', choreDoneHandler);
+  registry.register('chore-skip', choreSkipHandler);
 
   for (const name of registry.names()) {
     telegram.onCommand(name, async (msg) => {
@@ -93,7 +95,14 @@ export function createBot(config: Config, notion: NotionClient, telegram: Telegr
       // Fetch chores once, shared across tier 2 and tier 3
       const chores = await notion.listChores();
 
-      // Tier 2: fuzzy matching
+      // Tier 2: fuzzy matching (skip checked before log)
+      const skipMatch = fuzzySkipRoute(msg.text, chores);
+      if (skipMatch) {
+        logger.info('Fuzzy skip match: routing directly', { chore: skipMatch.choreName, sender: senderName });
+        await skipChores([skipMatch.choreId], groupChatId, msg.message_id, notion, telegram);
+        return;
+      }
+
       const fuzzyMatch = fuzzyRoute(msg.text, chores);
       if (fuzzyMatch) {
         logger.info('Fuzzy match: routing directly', { chore: fuzzyMatch.choreName, sender: senderName });

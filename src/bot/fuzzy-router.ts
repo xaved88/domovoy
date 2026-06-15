@@ -1,6 +1,8 @@
 import Fuse from 'fuse.js';
 import type { Chore } from '../notion';
 
+const SKIP_KEYWORD = /\bskip(?:ped|ping)?\b/i;
+
 // Patterns that indicate the user completed a chore. Capture group 1 = chore description.
 const LOG_PATTERNS = [
   /^(?:i\s+)?(?:just\s+)?(?:did|finished|done|completed?|cleaned?)\s+(?:the\s+)?(.+)/i,
@@ -51,6 +53,23 @@ export function detectLogIntent(text: string): string | null {
 
 export function fuzzyRoute(text: string, chores: Chore[]): FuzzyMatch | null {
   const choreQuery = detectLogIntent(text);
+  if (!choreQuery) return null;
+  return matchChoreByName(choreQuery, chores);
+}
+
+export function detectSkipIntent(text: string): string | null {
+  if (!SKIP_KEYWORD.test(text)) return null;
+  const query = text
+    .replace(SKIP_KEYWORD, '')
+    .replace(/\b(?:i(?:'m| am| was)?|going to|the|a|an|just)\b/gi, ' ')
+    .replace(/[.,!?]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return query.length > 0 ? query : null;
+}
+
+export function fuzzySkipRoute(text: string, chores: Chore[]): FuzzyMatch | null {
+  const choreQuery = detectSkipIntent(text);
   if (!choreQuery) return null;
   return matchChoreByName(choreQuery, chores);
 }

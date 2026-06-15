@@ -23,6 +23,10 @@ logger.info('Domovoy starting', { tz: config.TZ });
 const notion = createNotionClient(config);
 const telegram = createTelegramClient(config);
 
+notion.ensureSkippedColumn().catch((err) => {
+  logger.error('Failed to ensure Skipped column in log DB', { error: String(err) });
+});
+
 startScheduler(notion, telegram, config);
 
 const bot = createBot(config, notion, telegram);

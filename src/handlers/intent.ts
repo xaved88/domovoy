@@ -4,6 +4,7 @@ import type { NotionClient, Chore } from '../notion';
 import type { TelegramClient } from '../telegram';
 import { TOOLS } from '../tools';
 import { logChores } from './chore-log';
+import { skipChores } from './chore-skip';
 import { createLogger } from '../logger';
 
 const logger = createLogger('intent');
@@ -76,6 +77,7 @@ Household members: ${memberNames.join(', ')}
 Current sender: ${senderName}
 
 Rules:
+- If the message contains "skip" or "skipped" anywhere, call skip_chore with the matching chore_ids. Do not ask for confirmation.
 - If the message refers to completing one or more chores, call log_chore with chore_ids containing ALL matching chore IDs. A single message may mention several chores — include every one.
 - Set done_by to whoever actually completed the chore. If the message says another member did it (e.g. "Yael did the dishes"), set done_by to that member's name. Otherwise set done_by to the sender's name.
 - Prefer a confident guess over asking. If you can identify the most plausible chore — even without certainty — call log_chore and pick it. A recoverable mistake is better than interrupting the user. Only call request_clarification if you face genuine 50/50 ambiguity between two specific chores with no signal to prefer one.
@@ -104,7 +106,11 @@ Rules:
 
     const { name, input } = toolUse;
 
-    if (name === 'log_chore') {
+    if (name === 'skip_chore') {
+      clearHistory(chatId);
+      const { chore_ids } = input as { chore_ids: string[] };
+      await skipChores(chore_ids, chatId, messageId, notion, telegram);
+    } else if (name === 'log_chore') {
       clearHistory(chatId);
       const { chore_ids, done_by } = input as { chore_ids: string[]; done_by: string };
       await logChores(chore_ids, done_by, chatId, messageId, notion, telegram);

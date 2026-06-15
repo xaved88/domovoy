@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectLogIntent, matchChoreByName, fuzzyRoute } from './fuzzy-router';
+import { detectLogIntent, matchChoreByName, fuzzyRoute, detectSkipIntent, fuzzySkipRoute } from './fuzzy-router';
 import type { Chore } from '../notion';
 
 function makeChore(id: string, name: string): Chore {
@@ -87,6 +87,54 @@ describe('matchChoreByName', () => {
     // "clean" is equally close to both
     const result = matchChoreByName('clean', ambiguousChores);
     expect(result).toBeNull();
+  });
+});
+
+describe('detectSkipIntent', () => {
+  it('extracts chore from "skip dishes"', () => {
+    expect(detectSkipIntent('skip dishes')).toBe('dishes');
+  });
+
+  it('extracts chore from "skipped the laundry"', () => {
+    expect(detectSkipIntent('skipped the laundry')).toBe('laundry');
+  });
+
+  it('extracts chore from "I\'m skipping vacuuming"', () => {
+    expect(detectSkipIntent("I'm skipping vacuuming")).toBe('vacuuming');
+  });
+
+  it('extracts chore from "dishes skipped"', () => {
+    expect(detectSkipIntent('dishes skipped')).toBe('dishes');
+  });
+
+  it('returns null when skip keyword is absent', () => {
+    expect(detectSkipIntent('I did the dishes')).toBeNull();
+  });
+
+  it('returns null for bare "skip" with no chore', () => {
+    expect(detectSkipIntent('skip')).toBeNull();
+  });
+});
+
+describe('fuzzySkipRoute', () => {
+  it('routes "skip dishes" to wash dishes', () => {
+    const result = fuzzySkipRoute('skip dishes', CHORES);
+    expect(result).not.toBeNull();
+    expect(result?.choreId).toBe('1');
+  });
+
+  it('routes "skipped the laundry" to do laundry', () => {
+    const result = fuzzySkipRoute('skipped the laundry', CHORES);
+    expect(result).not.toBeNull();
+    expect(result?.choreId).toBe('5');
+  });
+
+  it('returns null when skip keyword is absent', () => {
+    expect(fuzzySkipRoute('I did the dishes', CHORES)).toBeNull();
+  });
+
+  it('returns null when no chore matches', () => {
+    expect(fuzzySkipRoute('skip grocery shopping', CHORES)).toBeNull();
   });
 });
 
